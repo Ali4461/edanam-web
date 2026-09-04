@@ -20,6 +20,7 @@ type Interest = "erp" | "excel" | "digital" | "unsure";
 export function ContactForm({ labels }: { labels: Dictionary["contact"]["form"] }) {
   const [interest, setInterest] = useState<Interest>("erp");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -44,15 +45,20 @@ export function ContactForm({ labels }: { labels: Dictionary["contact"]["form"] 
         body: JSON.stringify(payload),
       });
 
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+
       if (!res.ok) {
+        setErrorDetail(data.error || labels.error);
         setStatus("error");
         return;
       }
 
+      setErrorDetail(null);
       setStatus("success");
       form.reset();
       setInterest("erp");
     } catch {
+      setErrorDetail(labels.error);
       setStatus("error");
     }
   }
@@ -138,7 +144,9 @@ export function ContactForm({ labels }: { labels: Dictionary["contact"]["form"] 
             <p className="text-center text-sm font-medium text-emerald-700">{labels.success}</p>
           )}
           {status === "error" && (
-            <p className="text-center text-sm font-medium text-destructive">{labels.error}</p>
+            <p className="text-center text-sm font-medium text-destructive">
+              {errorDetail || labels.error}
+            </p>
           )}
           <p className="text-center text-xs text-muted-foreground">{labels.consent}</p>
         </form>
