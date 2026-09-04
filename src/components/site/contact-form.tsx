@@ -15,19 +15,52 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import type { Dictionary } from "@/i18n/get-dictionary";
 
+type Interest = "erp" | "excel" | "digital" | "unsure";
+
 export function ContactForm({ labels }: { labels: Dictionary["contact"]["form"] }) {
-  const [sent, setSent] = useState(false);
+  const [interest, setInterest] = useState<Interest>("erp");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setStatus("loading");
+
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+
+    const payload = {
+      name: String(fd.get("name") ?? ""),
+      email: String(fd.get("email") ?? ""),
+      phone: String(fd.get("phone") ?? ""),
+      company: String(fd.get("company") ?? ""),
+      interest,
+      message: String(fd.get("message") ?? ""),
+    };
+
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        setStatus("error");
+        return;
+      }
+
+      setStatus("success");
+      form.reset();
+      setInterest("erp");
+    } catch {
+      setStatus("error");
+    }
+  }
 
   return (
     <Card className="shadow-md">
       <CardContent className="p-6 sm:p-8">
-        <form
-          className="space-y-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setSent(true);
-          }}
-        >
+        <form className="space-y-4" onSubmit={onSubmit}>
           <div className="space-y-1.5">
             <Label htmlFor="name">{labels.fullName}</Label>
             <Input
@@ -50,6 +83,17 @@ export function ContactForm({ labels }: { labels: Dictionary["contact"]["form"] 
             />
           </div>
           <div className="space-y-1.5">
+            <Label htmlFor="phone">{labels.phone}</Label>
+            <Input
+              id="phone"
+              name="phone"
+              type="tel"
+              required
+              autoComplete="tel"
+              placeholder={labels.phonePlaceholder}
+            />
+          </div>
+          <div className="space-y-1.5">
             <Label htmlFor="company">{labels.company}</Label>
             <Input
               id="company"
@@ -61,8 +105,13 @@ export function ContactForm({ labels }: { labels: Dictionary["contact"]["form"] 
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="interest">{labels.interest}</Label>
-            <Select defaultValue="erp">
-              <SelectTrigger id="interest" aria-label={labels.interest}>
+            <Select
+              value={interest}
+              onValueChange={(value) => {
+                if (value) setInterest(value as Interest);
+              }}
+            >
+              <SelectTrigger id="interest" className="w-full" aria-label={labels.interest}>
                 <SelectValue placeholder={labels.interestPlaceholder} />
               </SelectTrigger>
               <SelectContent>
@@ -82,11 +131,14 @@ export function ContactForm({ labels }: { labels: Dictionary["contact"]["form"] 
               placeholder={labels.messagePlaceholder}
             />
           </div>
-          <Button type="submit" variant="signal" className="w-full">
-            {labels.submit}
+          <Button type="submit" variant="signal" className="w-full" disabled={status === "loading"}>
+            {status === "loading" ? labels.submitting : labels.submit}
           </Button>
-          {sent && (
+          {status === "success" && (
             <p className="text-center text-sm font-medium text-emerald-700">{labels.success}</p>
+          )}
+          {status === "error" && (
+            <p className="text-center text-sm font-medium text-destructive">{labels.error}</p>
           )}
           <p className="text-center text-xs text-muted-foreground">{labels.consent}</p>
         </form>
